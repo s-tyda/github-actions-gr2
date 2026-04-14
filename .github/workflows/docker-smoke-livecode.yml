@@ -1,0 +1,39 @@
+name: Docker smoke test (livecode)
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  docker-smoke:
+    name: Build image and smoke test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Build image
+        run: docker build -t gha-gr2:${{ github.sha }} .
+
+      - name: Run container
+        run: docker run -d --name gha-gr2-app -p 8000:8000 gha-gr2:${{ github.sha }}
+
+      - name: Wait for app
+        run: sleep 5
+
+      - name: Smoke test /health
+        run: curl --fail http://127.0.0.1:8000/health
+
+      - name: Add summary
+        run: |
+          echo "## Docker smoke test" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- event: \`${{ github.event_name }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- ref: \`${{ github.ref }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- image tag: \`gha-gr2:${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- smoke test: ✅ passed" >> $GITHUB_STEP_SUMMARY
+
+      - name: Cleanup
+        if: always()
+        run: docker rm -f gha-gr2-app
